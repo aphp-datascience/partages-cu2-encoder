@@ -107,15 +107,32 @@ parquet file (or a folder of parquet files) with **one row per hospital stay (RU
   ideally from a later period), then a **validation** set of 1 000-2 000 stays, and use the
   rest for **training**. On real AP-HP stays, about 30 000 coded training stays gave most of
   the gain of fine-tuning.
+- **Make the test set as clean as possible.** A model learns well from noisy training codes, but
+  a noisy test set gives misleading numbers: the model is then scored against coding errors,
+  and the accuracy partly measures the quality of your routine coding rather than the model.
+  Coding quality also differs between hospitals (stays coded by dedicated coders, TIM / MIM,
+  or directly by clinicians), so a raw accuracy must not be read as a ranking of hospitals or
+  models across sites. If you can, build the test set from stays **reviewed by the DIM**,
+  ideally coded twice independently, and keep only the stays where both codings agree (or are
+  reconciled). A few hundred such stays are worth more than thousands of unchecked ones.
 
 ## 3. Running and evaluating the model
 
-On a whole file, with your coding to measure accuracy (optional):
+On a whole file:
 
 ```bash
 uv run python -m scripts.predict --model models/cu2-icd10-dp-encoder \
     --data my_test.parquet --out preds.parquet --acts acts --gold-dp dp --gold-dr dr --topk 10
 ```
+
+| Option | What it does |
+|---|---|
+| `--model` | the model: the downloaded folder, or a fine-tuned one (`artifacts/model-last`) |
+| `--data`, `--out` | your parquet file (section 2), and the file where predictions are written |
+| `--acts acts` | name of the column holding the CCAM codes. The script writes the `Actes (CCAM) : …` line at the top of each text, as in training. Leave it out if you have no acts |
+| `--gold-dp dp`, `--gold-dr dr` | names of the columns holding **your** PMSI coding. Optional: they are not used to predict, only to print the accuracy at the end. Leave them out to just run the model |
+| `--topk 10` | also return the 10 most likely codes per stay |
+| `--rule` | the keep-the-DR rule (default [`data/dr_rule.json`](data/dr_rule.json)); `none` always keeps the DR |
 
 `preds.parquet` has one row per stay:
 
@@ -126,9 +143,9 @@ uv run python -m scripts.predict --model models/cu2-icd10-dp-encoder \
 | `candidates`, `scores` | with `--topk k`: the k most likely codes, `target` first |
 | `affection`, `mdp` | the two raw outputs of the model (see [Architecture](#architecture)) |
 
-With `--gold-dp/--gold-dr`, it prints the share of stays where `target` equals your coding,
-on the exact code and on the 3-character category (and in the top-k). Run it before and after
-fine-tuning on the **same** test stays to measure the gain.
+With `--gold-dp/--gold-dr`, the script prints the share of stays where `target` equals your
+coding, on the exact code and on the 3-character category (and in the top-k). Run it before and
+after fine-tuning on the **same** test stays to measure the gain.
 
 From Python, for one stay:
 
@@ -147,7 +164,7 @@ dp, dr = reconstruct(doc._.mdp, doc._.affection, rule)
 
 ## 4. Fine-tuning on your stays
 
-1. **Prepare the training and validation files** (same format, with `dp` and `dr`):
+1. **Prepare the training and validation files** (same format as section 2, with your coding):
 
    ```bash
    uv run python -m scripts.prepare_heads --model models/cu2-icd10-dp-encoder \
@@ -156,8 +173,13 @@ dp, dr = reconstruct(doc._.mdp, doc._.affection, rule)
        --src my_dev.parquet --out data/my_dev --acts acts
    ```
 
-   The counts printed tell how many stays were kept, and how many codes fall outside the
-   model's label space (those stays are partly ignored, never wrongly learned).
+   `--src` is your file and `--out` the folder written for training. `--acts` works as in
+   section 3 (the acts line is added to the text, so the model is trained on the same input as
+   at prediction time). Your coding is read from the columns `dp` and `dr` (`--dp` and `--dr`
+   to use other names; without a DR column, the DR is considered absent). The script turns it
+   into the model's two outputs (`affection`, `mdp`): you never do this yourself. The counts
+   printed tell how many stays were kept, and how many codes fall outside the model's label
+   space (those stays are partly ignored, never wrongly learned).
 
 2. **Train** on one GPU:
 
@@ -167,14 +189,32 @@ dp, dr = reconstruct(doc._.mdp, doc._.affection, rule)
    ```
 
    The fine-tuned model is written to `artifacts/model-last`; use it exactly like the
-   released one (`--model artifacts/model-last`). Settings are in
-   [`configs/finetune.yml`](configs/finetune.yml) (4 000 steps of 16 stays by default). Use
-   the training files as they are (no masking or augmentation).
+   released one (`--model artifacts/model-last`). Use the training files as they are (no
+   masking or augmentation).
 
 3. **Evaluate** it on your test stays (section 3) and compare with the released model.
 
 Note styles and coding habits differ between hospitals: fine-tuning on your own coded stays is
 recommended; on AP-HP stays it brought a clear gain over the released model.
+
+### Changing the fine-tuning settings
+
+All settings are in [`configs/finetune.yml`](configs/finetune.yml), an
+[EDS-NLP](https://aphp.github.io/edsnlp/) training config. Edit the
+file, or override any entry on the command line (`--vars.max_steps 2000`,
+`--train_data.batch_size "8 docs"`). The defaults are those of the AP-HP fine-tuning.
+
+| Setting | Default | When to change it |
+|---|---|---|
+| `vars.max_steps` | 4 000 | training length; a much larger training set may need more steps (watch the validation score) |
+| `vars.encoder_lr`, `vars.head_lr` | 1e-5, 1.7e-4 | learning rates of the encoder and of the two heads |
+| `vars.validation_interval` | 500 | how often (in steps) the validation set is scored |
+| `vars.output_dir` | `artifacts` | where the model is written (`model-last` inside) |
+| `train_data.batch_size` | `16 docs` | stays per step; lower it on a smaller GPU |
+| `train_data.sub_batch_size` | `12000 words` | words processed at once; lower it if the GPU runs out of memory (12 000 fits an 80 GB A100) |
+| `LABEL_SMOOTHING` (environment variable) | 0.1 | label smoothing of the `affection` head; `0` for plain cross-entropy |
+
+Several GPUs: `uv run accelerate launch --multi_gpu -m scripts.train --config configs/finetune.yml`.
 
 ## Model and training
 
