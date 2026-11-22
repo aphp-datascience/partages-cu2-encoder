@@ -19,11 +19,6 @@ measure it, and fine-tune it on its own PMSI coding**.
   disease (e.g. `Z51.1` chemotherapy session, `Z09.0` follow-up after surgery).
 - **DR** (*diagnostic relié*): when the DP is a Z code, the disease behind it (e.g. the cancer
   treated during a chemotherapy session).
-- **Target code**: the disease of the stay, i.e. the DR if there is one, otherwise the DP (also
-  returned by the model; the results below are measured on the DP).
-- **`affection` and `mdp`**: the two outputs of the model. `affection` is the disease (the target
-  code); `mdp` (*motif de prise en charge*) is the Z code used as DP, or `Z769` by default when
-  the DP is not a Z code.
 - **CRC / CRH / CR-OP**: consultation reports, discharge summaries, operative reports.
 
 **In short**
@@ -222,7 +217,7 @@ Several GPUs: `uv run accelerate launch --multi_gpu -m scripts.train --config co
 
 ### Architecture
 
-![Architecture: stay text (CCAM acts + reports) → windows of 256 tokens → DoctoBERT encoder → attention pooler → stay embedding → affection head (12 950 ICD-10 codes) and mdp head (720 Z codes, Z769 by default) → PMSI rule → DP, DR, target code and top-k candidates](docs/architecture.svg)
+![Architecture: stay text (CCAM acts + reports) → windows of 256 tokens → DoctoBERT encoder → attention pooler → stay embedding → affection head (12 950 ICD-10 codes) and mdp head (720 Z codes, Z769 by default) → PMSI rule → DP, DR and top-k candidates](docs/architecture.svg)
 
 A BERT-base encoder initialised from
 [`doctolib-lab/doctobert-fr-base`](https://huggingface.co/doctolib-lab/doctobert-fr-base)
