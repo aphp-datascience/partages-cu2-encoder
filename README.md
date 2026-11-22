@@ -19,8 +19,8 @@ measure it, and fine-tune it on its own PMSI coding**.
   disease (e.g. `Z51.1` chemotherapy session, `Z09.0` follow-up after surgery).
 - **DR** (*diagnostic relié*): when the DP is a Z code, the disease behind it (e.g. the cancer
   treated during a chemotherapy session).
-- **Target code**: the disease of the stay, i.e. the DR if there is one, otherwise the DP. The
-  results below are measured on it.
+- **Target code**: the disease of the stay, i.e. the DR if there is one, otherwise the DP (also
+  returned by the model; the results below are measured on the DP).
 - **`affection` and `mdp`**: the two outputs of the model. `affection` is the disease (the target
   code); `mdp` (*motif de prise en charge*) is the Z code used as DP, or `Z769` by default when
   the DP is not a Z code.
@@ -272,39 +272,31 @@ reference exists, it is used instead. Only fictitious or synthetic texts were se
 
 ## Results (before any fine-tuning on real hospital data)
 
-Accuracy of the target code: exact code, gold code among the top-10 or top-20 `candidates`,
-and 3-character category.
+Accuracy of the suggested **DP** against the PMSI DP of the stay, i.e. what `primary_diag`
+contains: exact code, DP among the top-10 or top-20 candidates, first 4 characters (the metric of
+the PARTAGES Codabench challenge), and 3-character category.
 
 **Physician-reviewed AP-HP stays** (May 2026; text = acts + CRC + CRH + CR-OP). Views:
 **flattened** = every review is a row; **agreement + single** = one row per stay, reviewed once
 or by several reviewers who agree; **agreement** = only stays with several agreeing reviewers.
-**ICD-10** = whole classification; **surgery** = stays coded in the surgical scope of the use
-case (~3 500 codes), predictions restricted to it.
+**ICD-10** = all stays; **surgery** = stays coded in the surgical scope of the use case (~3 500
+codes).
 
-| View | Scope | Stays | Exact | Top-10 | Top-20 | 3 char. |
-|---|---|---:|---:|---:|---:|---:|
-| flattened | ICD-10 | 310 | 43.2 % | 68.1 % | 73.9 % | 54.8 % |
-| flattened | surgery | 259 | 50.2 % | 74.1 % | 79.5 % | 59.9 % |
-| agreement + single | ICD-10 | 195 | 43.1 % | 69.2 % | 75.9 % | 54.9 % |
-| agreement + single | surgery | 167 | 48.5 % | 73.0 % | 79.6 % | 58.7 % |
-| agreement | ICD-10 | 47 | 70.2 % | 89.4 % | 91.5 % | 72.3 % |
-| agreement | surgery | 42 | 76.2 % | 92.9 % | 95.2 % | 76.2 % |
+| View | Scope | Stays | Exact | Top-10 | Top-20 | 4 char. | 3 char. |
+|---|---|---:|---:|---:|---:|---:|---:|
+| flattened | ICD-10 | 310 | 39.0 % | 66.5 % | 71.0 % | 42.3 % | 48.1 % |
+| flattened | surgery | 259 | 45.2 % | 73.0 % | 76.8 % | 46.3 % | 52.1 % |
+| agreement + single | ICD-10 | 195 | 38.5 % | 68.7 % | 73.3 % | 41.5 % | 47.7 % |
+| agreement + single | surgery | 167 | 43.1 % | 73.0 % | 77.2 % | 44.3 % | 50.9 % |
+| agreement | ICD-10 | 47 | 57.5 % | 85.1 % | 87.2 % | 59.6 % | 59.6 % |
+| agreement | surgery | 42 | 61.9 % | 90.5 % | 92.9 % | 61.9 % | 61.9 % |
 
-Small sets: 95 % confidence interval about ±7 points on ~200 stays, ±13 points on ~50. The
-reference coding is not certain either: even reviewed PMSI coding contains errors, and some stays
-can legitimately be coded in more than one way (e.g. when two conditions are treated during the
-stay). The **agreement** view, where reviewers concur, is the most reliable.
-
-**Principal diagnosis as coded (DP).** The table above measures the disease of the stay (the DR if
-any, else the DP), the convention of the reviews. The scripts of the repository compare the
-suggested **DP** with your `primary_diag`, which is harder when the DP is a Z code (sessions,
-follow-up): the right Z code must be found. On the same reviewed stays (flattened, ICD-10):
-
-| DP of the stay | Stays | Exact | 4 char. | 3 char. | Top-20 |
-|---|---:|---:|---:|---:|---:|
-| all | 310 | 39.0 % | 42.3 % | 48.1 % | 71.0 % |
-| not a Z code | 228 | 43.9 % | 48.2 % | 55.3 % | 73.2 % |
-| Z code (sessions, follow-up…) | 76 | 23.7 % | 23.7 % | 26.3 % | 64.5 % |
+When the DP is not a Z code, 43.9 % exact (228 stays, flattened); when it is a Z code (sessions,
+follow-up…), only 23.7 % exact but 64.5 % in the top-20 (76 stays): the right Z code is often among
+the first candidates. Small sets: 95 % confidence interval about ±7 points on ~200 stays, ±13
+points on ~50. The reference coding is not certain either: even reviewed PMSI coding contains
+errors, and some stays can legitimately be coded in more than one way. The **agreement** view,
+where reviewers concur, is the most reliable.
 
 ## Limitations
 
