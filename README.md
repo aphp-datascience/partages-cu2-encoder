@@ -62,8 +62,8 @@ matches your GPU driver (`nvidia-smi`, top right "CUDA Version": take the highes
 above it; `cpu` without GPU):
 
 ```bash
-git clone https://github.com/aphp-datascience/partages-cu2-encoder-baseline.git
-cd partages-cu2-encoder-baseline
+git clone https://github.com/aphp-datascience/partages-cu2-encoder.git
+cd partages-cu2-encoder
 uv sync --extra cu124    # or cu121, cu118, cpu
 ```
 
