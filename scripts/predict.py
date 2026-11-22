@@ -23,7 +23,7 @@ import edsnlp
 
 from scripts.heads import (
     DEFAULT_MDP,
-    candidates,
+    dp_candidates,
     load_rule,
     reconstruct,
     resolve_model,
@@ -91,20 +91,18 @@ def main() -> None:
     out["dr"] = [p[1] for p in pairs]
     out["target"] = out["dr"].fillna(out["primary_diag_pred"])
     out["affection"], out["mdp"] = df["affection"].to_numpy(), df["mdp"].to_numpy()
-    if args.topk:  # DP candidates: the predicted DP first, then the ranked targets
-        lists = []
-        for dp, t, p in zip(
-            out["primary_diag_pred"], out["target"], df["prob"], strict=True
-        ):
-            cs = candidates(
-                t,
+    if (
+        args.topk
+    ):  # DP candidates: Z codes by the mdp head, diseases by P(no Z) x P(disease)
+        lists = [
+            dp_candidates(
+                dp,
                 (p or {}).get("affection") or {},
                 (p or {}).get("mdp") or {},
-                rule,
                 args.topk,
             )
-            ranked = [(dp, 1.0)] + [(c, s) for c, s in cs if c != dp]
-            lists.append(ranked[: args.topk])
+            for dp, p in zip(out["primary_diag_pred"], df["prob"], strict=True)
+        ]
         out["candidates"] = ["|".join(c for c, _ in cs) for cs in lists]
         out["scores"] = ["|".join(f"{s:.4g}" for _, s in cs) for cs in lists]
     args.out.parent.mkdir(parents=True, exist_ok=True)

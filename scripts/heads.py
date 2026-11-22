@@ -94,3 +94,20 @@ def candidates(
     out = [(target, score.get(target, 0.0))]
     out += [(c, s) for c, s in ranked if c != target]
     return out[:k]
+
+
+def dp_candidates(
+    dp: str, aff_probs: dict, mdp_probs: dict, k: int
+) -> list[tuple[str, float]]:
+    """Top-k candidate DPs (the PMSI DP, Z codes included), ranked by their probability
+    of being the DP: a Z code z by P_mdp(z); a disease a by P_mdp(no Z) x P_aff(a).
+    The predicted DP comes first."""
+    p_none = mdp_probs.get(DEFAULT_MDP, 0.0)
+    score = {a: p * p_none for a, p in aff_probs.items()}
+    for z, p in mdp_probs.items():
+        if z != DEFAULT_MDP:
+            score[z] = max(score.get(z, 0.0), p)
+    ranked = sorted(score.items(), key=lambda kv: -kv[1])
+    out = [(dp, score.get(dp, 0.0))]
+    out += [(c, s) for c, s in ranked if c != dp]
+    return out[:k]
