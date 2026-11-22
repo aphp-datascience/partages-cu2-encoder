@@ -295,6 +295,17 @@ reference coding is not certain either: even reviewed PMSI coding contains error
 can legitimately be coded in more than one way (e.g. when two conditions are treated during the
 stay). The **agreement** view, where reviewers concur, is the most reliable.
 
+**Principal diagnosis as coded (DP).** The table above measures the disease of the stay (the DR if
+any, else the DP), the convention of the reviews. The scripts of the repository compare the
+suggested **DP** with your `primary_diag`, which is harder when the DP is a Z code (sessions,
+follow-up): the right Z code must be found. On the same reviewed stays (flattened, ICD-10):
+
+| DP of the stay | Stays | Exact | 3 char. |
+|---|---:|---:|---:|
+| all | 310 | 39.0 % | 48.1 % |
+| not a Z code | 228 | 43.9 % | 55.3 % |
+| Z code (sessions, follow-up…) | 76 | 23.7 % | 26.3 % |
+
 ## Limitations
 
 - **Mostly trained on surgery.** MISTRAL, by far the largest source, only covers ~4 000 codes,
