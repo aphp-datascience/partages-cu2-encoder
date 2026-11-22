@@ -300,11 +300,11 @@ any, else the DP), the convention of the reviews. The scripts of the repository 
 suggested **DP** with your `primary_diag`, which is harder when the DP is a Z code (sessions,
 follow-up): the right Z code must be found. On the same reviewed stays (flattened, ICD-10):
 
-| DP of the stay | Stays | Exact | 4 char. | 3 char. |
-|---|---:|---:|---:|---:|
-| all | 310 | 39.0 % | 42.3 % | 48.1 % |
-| not a Z code | 228 | 43.9 % | 48.2 % | 55.3 % |
-| Z code (sessions, follow-up…) | 76 | 23.7 % | 23.7 % | 26.3 % |
+| DP of the stay | Stays | Exact | 4 char. | 3 char. | Top-20 |
+|---|---:|---:|---:|---:|---:|
+| all | 310 | 39.0 % | 42.3 % | 48.1 % | 71.0 % |
+| not a Z code | 228 | 43.9 % | 48.2 % | 55.3 % | 73.2 % |
+| Z code (sessions, follow-up…) | 76 | 23.7 % | 23.7 % | 26.3 % | 64.5 % |
 
 ## Limitations
 
