@@ -1,13 +1,17 @@
-"""Add the two head targets (`affection`, `mdp`) to a dataset coded with PMSI DP / DR.
+"""Turn a coded stays file into a training file for the two heads.
 
-    uv run python -m scripts.prepare_heads --model <hf-repo-or-dir> \
-        --src my_train.parquet --out data/my_train [--dp dp --dr dr]
+    uv run python -m scripts.prepare_heads --model models/cu2-icd10-dp-encoder \
+        --src my_train.csv --out data/my_train
 
-Input: parquet with `note_id`, `note_text`, the DP column and (optionally) the DR
-column.
-Output: `<out>/data.parquet` with `note_id`, `note_text`, `affection`, `mdp`, ready for
-`configs/finetune.yml`. A target outside the model's label space becomes None (that
-head is masked for the note) and is counted, so the head sizes never change.
+Input: the stays file of the PARTAGES guidelines (`scripts/stays.py`): `id`,
+`text`, `procedure`, `primary_diag` (the PMSI DP, required here). A DP that is
+not a Z code trains the `affection` head (`mdp` = Z769); a Z code as DP (e.g. a
+chemotherapy session Z511) trains the `mdp` head, and the `affection` head is
+masked for that stay (the file has no DR). The CCAM codes are written as the
+first line of the text, as in training (`--no-acts` to skip).
+Output: `<out>/data.parquet` with `note_id`, `note_text`, `affection`, `mdp`,
+ready for `configs/finetune.yml`. A code outside the model's label space masks
+its head and is counted, so the head sizes never change.
 """
 
 import argparse
@@ -18,6 +22,7 @@ from pathlib import Path
 import pandas as pd
 
 from scripts.heads import DEFAULT_MDP, resolve_model, split_targets
+from scripts.stays import read_stays
 
 
 def model_labels(model: str) -> dict[str, set[str]]:
@@ -26,31 +31,24 @@ def model_labels(model: str) -> dict[str, set[str]]:
     return {name: set(h["labels"]) for name, h in vocab["heads"].items()}
 
 
-def norm(code) -> str | None:
-    if not isinstance(code, str) or not code.strip():
-        return None
-    return code.replace(".", "").strip().upper()
-
-
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--model", required=True)
-    ap.add_argument("--src", required=True, type=Path)
-    ap.add_argument("--out", required=True, type=Path)
-    ap.add_argument("--dp", default="dp", help="column of the PMSI DP")
-    ap.add_argument("--dr", default="dr", help="column of the PMSI DR (may be absent)")
     ap.add_argument(
-        "--acts",
-        help="column of CCAM codes: the 'Actes (CCAM)' header is added to note_text",
+        "--src", required=True, type=Path, help="stays file (CSV or parquet)"
     )
+    ap.add_argument("--out", required=True, type=Path)
+    ap.add_argument("--no-acts", action="store_true", help="do not add the CCAM line")
     args = ap.parse_args()
 
     labels = model_labels(args.model)
-    df = pd.read_parquet(args.src)
-    dr = df[args.dr] if args.dr in df else pd.Series([None] * len(df), index=df.index)
-    heads = [
-        split_targets(norm(p), norm(r)) for p, r in zip(df[args.dp], dr, strict=True)
-    ]
+    df = read_stays(args.src)
+    if "primary_diag" not in df:
+        raise SystemExit(
+            f"{args.src}: no column primary_diag (the PMSI DP), needed for fine-tuning"
+        )
+    df = df[df["primary_diag"].notna()]
+    heads = [split_targets(dp, None) for dp in df["primary_diag"]]
     mdp = [m if m in labels["mdp"] else None for m, _ in heads]
     aff = [a if a in labels["affection"] else None for _, a in heads]
     oov = Counter()
@@ -58,22 +56,28 @@ def main() -> None:
         oov["mdp"] += m2 is None
         oov["affection"] += a is not None and a2 is None
 
-    out = df[["note_id", "note_text"]].assign(affection=aff, mdp=mdp)
-    if args.acts:  # add the CCAM header, as in training
+    texts = df["text"]
+    if not args.no_acts:  # CCAM line on top of the text, as in training
         from scripts.acts import load_ccam, with_acts
 
         ccam = load_ccam()
-        out["note_text"] = [
-            with_acts(t, a, ccam)
-            for t, a in zip(out["note_text"], df[args.acts], strict=True)
+        texts = [
+            with_acts(t, a, ccam) for t, a in zip(texts, df["procedure"], strict=True)
         ]
+    out = pd.DataFrame(
+        {
+            "note_id": df["id"].to_numpy(),
+            "note_text": list(texts),
+            "affection": aff,
+            "mdp": mdp,
+        }
+    )
     out = out[out["affection"].notna() | out["mdp"].notna()]
     args.out.mkdir(parents=True, exist_ok=True)
     out.to_parquet(args.out / "data.parquet", index=False)
     print(
-        f"{len(out)}/{len(df)} notes -> {args.out / 'data.parquet'} ; "
+        f"{len(out)}/{len(df)} stays -> {args.out / 'data.parquet'} ; "
         f"DP in Z: {sum(m not in (None, DEFAULT_MDP) for m in mdp)} ; "
-        f"affection masked: {sum(a is None for a in aff)} ; "
         f"outside the label space (masked): mdp {oov['mdp']}, "
         f"affection {oov['affection']}"
     )

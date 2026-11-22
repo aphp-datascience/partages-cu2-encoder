@@ -44,7 +44,7 @@ measure it, and fine-tune it on its own PMSI coding**.
 | Step | What you do | Section |
 |---|---|---|
 | 1 | Request access to the model, install the repository | [Installation](#1-installation) |
-| 2 | Export your stays: reports, CCAM acts, PMSI DP/DR | [Input data](#2-input-data) |
+| 2 | Export your stays: reports, CCAM codes, PMSI DP (CSV of the guidelines) | [Input data](#2-input-data) |
 | 3 | Run the released model on held-out stays: your baseline | [Running and evaluating](#3-running-and-evaluating-the-model) |
 | 4 | Fine-tune it on your own coded stays | [Fine-tuning](#4-fine-tuning-on-your-stays) |
 | 5 | Compare before / after on the same held-out stays, then use the better model | [Running and evaluating](#3-running-and-evaluating-the-model) |
@@ -82,25 +82,26 @@ root.
 
 ## 2. Input data
 
-The model reads **one text per stay**: the CCAM procedures of the stay on the first line
-(`Actes (CCAM) : CODE - label ; CODE - label ; …`, or `Actes (CCAM) : non renseigné`), a blank
-line, then the reports of the stay in chronological order (consultation, operation, discharge),
-separated by blank lines. You do not build this text yourself: the scripts build it from one
-parquet file (or a folder of parquet files) with **one row per hospital stay (RUM)**:
+One **CSV file, one row per hospital stay (RUM)**, with the columns of the PARTAGES guidelines
+(the same format as the PARTAGES Codabench challenge):
 
-| Column | Needed for | Content |
-|---|---|---|
-| `note_id` | always | a unique id of the stay |
-| `note_text` | always | the CRC, CR-OP and CRH of the stay, in chronological order, separated by a blank line |
-| `acts` | strongly recommended | the CCAM codes of the stay: a list, or a string such as `NFFC004;ZBQK002`; empty if none |
-| `dp` | evaluation, fine-tuning | the PMSI principal diagnosis (`C509` or `C50.9`) |
-| `dr` | evaluation, fine-tuning | the PMSI related diagnosis (empty when none) |
+| Column | Needed for | Content | Example |
+|---|---|---|---|
+| `id` | always | a unique id of the stay | `RUM_000123` |
+| `speciality` | — | the specialty of the stay (not used by the model) | `CHIRURGIE VISCERALE` |
+| `text` | always | the reports of the stay (CRC, CR-OP, CRH) concatenated, separated by a blank line or by the `[...]` marker of the guidelines | `Compte rendu de consultation …` |
+| `procedure` | strongly recommended | the CCAM codes of the stay, separated by spaces; empty if none | `NDPA014 NDPA008` |
+| `primary_diag` | evaluation, fine-tuning | the PMSI principal diagnosis (DP) of the RUM, as coded, Z codes included | `M6534`, `Z511` |
 
-- **Keep your PMSI coding as it is.** You never convert it yourself: the scripts handle the
-  model's two outputs.
-- **Procedures.** Pass your acts column with `--acts acts`: the scripts write the first line,
-  using the CCAM 2026 nomenclature shipped in [`data/ccam_2026.csv`](data/ccam_2026.csv)
-  (ATIH). Without acts the model still works, slightly less well.
+- **Keep your PMSI coding as it is.** `primary_diag` is the DP of the RUM, even when it is a Z
+  code (e.g. a chemotherapy session `Z511`). You never convert it yourself: the scripts handle
+  the model's two outputs.
+- **Procedures.** The scripts write them as the first line of the text, as in training
+  (`Actes (CCAM) : CODE - label ; …`), using the CCAM 2026 nomenclature shipped in
+  [`data/ccam_2026.csv`](data/ccam_2026.csv) (ATIH). Without procedures the model still works,
+  slightly less well.
+- **Text.** The column may also be called `texte`. Parquet files with the same columns are
+  accepted too.
 - **Which stays.** Closed stays with at least one CRC, CRH or CR-OP. Keep the stays the way
   your DIM codes them; one row per RUM.
 - **Splits.** For fine-tuning, set aside a **test** set first (stays never used for training,
@@ -122,30 +123,32 @@ On a whole file:
 
 ```bash
 uv run python -m scripts.predict --model models/cu2-icd10-dp-encoder \
-    --data my_test.parquet --out preds.parquet --acts acts --gold-dp dp --gold-dr dr --topk 10
+    --data my_test.csv --out preds.csv --topk 10
 ```
 
 | Option | What it does |
 |---|---|
 | `--model` | the model: the downloaded folder, or a fine-tuned one (`artifacts/model-last`) |
-| `--data`, `--out` | your parquet file (section 2), and the file where predictions are written |
-| `--acts acts` | name of the column holding the CCAM codes. The script writes the `Actes (CCAM) : …` line at the top of each text, as in training. Leave it out if you have no acts |
-| `--gold-dp dp`, `--gold-dr dr` | names of the columns holding **your** PMSI coding. Optional: they are not used to predict, only to print the accuracy at the end. Leave them out to just run the model |
-| `--topk 10` | also return the 10 most likely codes per stay |
+| `--data`, `--out` | your stays file (section 2), and the file where predictions are written (CSV, or parquet if the name ends with `.parquet`) |
+| `--topk 10` | also return the 10 most likely DP codes per stay |
+| `--no-acts` | do not write the CCAM line (by default it is built from `procedure`) |
 | `--rule` | the keep-the-DR rule (default [`data/dr_rule.json`](data/dr_rule.json)); `none` always keeps the DR |
 
-`preds.parquet` has one row per stay:
+`preds.csv` has one row per stay:
 
 | Column | Meaning |
 |---|---|
-| `dp`, `dr` | the suggested PMSI coding (DR only when the DP is a Z code) |
-| `target` | the target code, to compare with your coding: the DR if any, else the DP |
-| `candidates`, `scores` | with `--topk k`: the k most likely codes, `target` first |
+| `id` | the id of the stay |
+| `primary_diag_pred` | the suggested DP, to compare with your `primary_diag` |
+| `dr` | the suggested DR (only when the DP is a Z code) |
+| `target` | the disease of the stay: the DR if any, else the DP |
+| `candidates`, `scores` | with `--topk k`: the k most likely DP codes, the suggested DP first |
 | `affection`, `mdp` | the two raw outputs of the model (see [Architecture](#architecture)) |
 
-With `--gold-dp/--gold-dr`, the script prints the share of stays where `target` equals your
-coding, on the exact code and on the 3-character category (and in the top-k). Run it before and
-after fine-tuning on the **same** test stays to measure the gain.
+If the file has a `primary_diag` column, the script prints the share of stays where the
+suggested DP equals it: exact code, first 4 characters (the Codabench metric), first 3
+characters (category), and in the top-k. `primary_diag` is never used to predict. Run it before
+and after fine-tuning on the **same** test stays to measure the gain.
 
 From Python, for one stay:
 
@@ -164,22 +167,21 @@ dp, dr = reconstruct(doc._.mdp, doc._.affection, rule)
 
 ## 4. Fine-tuning on your stays
 
-1. **Prepare the training and validation files** (same format as section 2, with your coding):
+1. **Prepare the training and validation files** (stays files as in section 2, with
+   `primary_diag`):
 
    ```bash
    uv run python -m scripts.prepare_heads --model models/cu2-icd10-dp-encoder \
-       --src my_train.parquet --out data/my_train --acts acts
+       --src my_train.csv --out data/my_train
    uv run python -m scripts.prepare_heads --model models/cu2-icd10-dp-encoder \
-       --src my_dev.parquet --out data/my_dev --acts acts
+       --src my_dev.csv --out data/my_dev
    ```
 
-   `--src` is your file and `--out` the folder written for training. `--acts` works as in
-   section 3 (the acts line is added to the text, so the model is trained on the same input as
-   at prediction time). Your coding is read from the columns `dp` and `dr` (`--dp` and `--dr`
-   to use other names; without a DR column, the DR is considered absent). The script turns it
-   into the model's two outputs (`affection`, `mdp`): you never do this yourself. The counts
-   printed tell how many stays were kept, and how many codes fall outside the model's label
-   space (those stays are partly ignored, never wrongly learned).
+   `--src` is your file and `--out` the folder written for training. The procedures are added to
+   the text as in section 3, so the model is trained on the same input as at prediction time.
+   The script turns your DP into the model's two outputs (`affection`, `mdp`): a Z code as DP
+   trains `mdp` only. The counts printed tell how many stays were kept, and how many codes fall
+   outside the model's label space (those stays are partly ignored, never wrongly learned).
 
 2. **Train** on one GPU:
 
@@ -313,10 +315,10 @@ stay). The **agreement** view, where reviewers concur, is the most reliable.
 
 ## FAQ
 
-- **We have no CCAM acts.** Leave `--acts` out: the model still works, slightly less well
-  (the first line of its training texts listed the acts).
-- **Our stays have no DR column.** Pass only `--dp` (or `--gold-dp`): the DR is then
-  considered absent.
+- **We have no CCAM codes.** Leave `procedure` empty (or pass `--no-acts`): the model still
+  works, slightly less well (the first line of its training texts listed the procedures).
+- **Our DP is a Z code (sessions, follow-up).** Keep it as is in `primary_diag`: the model
+  predicts Z codes as DP too, and suggests the related disease in `dr`.
 - **Out of GPU memory during fine-tuning** (e.g. on a 16-24 GB GPU). Lower `batch_size` and
   `sub_batch_size` in `configs/finetune.yml`. A single stay is never split across batches, so
   very long stays may have to be removed from the training file.
@@ -329,8 +331,9 @@ stay). The **agreement** view, where reviewers concur, is the most reliable.
 
 ```
 configs/finetune.yml     fine-tuning settings
-scripts/predict.py       inference and accuracy on a file
-scripts/prepare_heads.py PMSI DP/DR -> training files
+scripts/predict.py       inference and accuracy on a stays file
+scripts/prepare_heads.py stays file -> training files
+scripts/stays.py         reading the stays file (CSV of the guidelines)
 scripts/train.py         training (edsnlp.train + label smoothing)
 scripts/heads.py         DP/DR <-> model outputs, DR rule
 scripts/acts.py          CCAM procedure line of the input text
