@@ -29,6 +29,8 @@ measure it, and fine-tune it on its own PMSI coding**.
   infrastructure. The released model was trained without any real patient data.
 - **Light:** a BERT-base encoder (~110 M parameters); inference on any recent GPU (or CPU for
   small volumes); for fine-tuning, a GPU with ≥ 16 GB of memory is recommended.
+- **Fast:** on one A100, about 140 stays per second for stays of ~550 words, 45 per second for
+  ~1 750 words (time grows with the length of the text): about 160 000 to 500 000 stays per hour.
 - **Mostly trained on surgical stays**, but covers the whole ICD-10 (see
   [Limitations](#limitations)).
 - **Adapt it to your hospital:** fine-tuning on your own coded stays is recommended; on AP-HP
@@ -49,6 +51,7 @@ measure it, and fine-tune it on its own PMSI coding**.
 **Hardware.** The model is small (a BERT-base encoder, about 110 M parameters).
 
 - **Inference:** any recent NVIDIA GPU is enough; a CPU also works for small volumes (slower).
+  Measured on one A100 80 GB: ~140 stays/s at ~550 words per stay, ~45 stays/s at ~1 750 words.
 - **Fine-tuning:** a GPU with ≥ 16 GB of memory is recommended. The reference fine-tuning used
   one A100; a smaller GPU works with smaller batches (see the [FAQ](#faq)).
 
