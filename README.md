@@ -139,7 +139,6 @@ uv run python -m scripts.predict --model models/cu2-icd10-dp-encoder \
 | `id` | the id of the stay |
 | `primary_diag_pred` | the suggested DP, to compare with your `primary_diag` |
 | `dr` | the suggested DR (only when the DP is a Z code) |
-| `target` | the disease of the stay: the DR if any, else the DP |
 | `candidates`, `scores` | with `--topk k`: the k most likely DP codes, the suggested DP first |
 | `affection`, `mdp` | the two raw outputs of the model (see [Architecture](#architecture)) |
 
@@ -237,7 +236,7 @@ C50.9" and "DP = C50.9". The PMSI coding is rebuilt from the two heads: `mdp = Z
 `affection`, no DR; otherwise DP = the Z code, and `affection` is its DR if
 [`data/dr_rule.json`](data/dr_rule.json) says that this Z code usually has a DR (estimated
 on PMSI coding; it can be replaced by your own, same format, or disabled with `--rule none`).
-`--topk` ranks the codes of both heads together, by their probability of being the target.
+`--topk` ranks the codes of both heads together, by their probability of being the DP.
 
 ### Training data
 

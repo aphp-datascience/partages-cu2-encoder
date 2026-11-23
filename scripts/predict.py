@@ -8,8 +8,8 @@ Input: the stays file of the PARTAGES guidelines (`scripts/stays.py`): CSV with
 The CCAM codes of `procedure` are written as the first line of the text, as in
 training (`--no-acts` to skip).
 Output (CSV, or parquet if --out ends with .parquet): one row per stay with the
-predicted PMSI coding (`primary_diag_pred` = the DP, `dr`), `target` (the disease:
-DR if any, else DP), the raw head outputs (`affection`, `mdp`) and, with
+predicted PMSI coding (`primary_diag_pred` = the DP, `dr`), the raw head outputs
+(`affection`, `mdp`) and, with
 `--topk K`, the K most likely DP codes (`candidates`, `scores`).
 If `primary_diag` is given, also prints the accuracy of the predicted DP against
 it: exact code, first 4 characters (the Codabench metric), first 3 characters,
@@ -89,7 +89,6 @@ def main() -> None:
     out = stays[["id"]].copy()
     out["primary_diag_pred"] = [p[0] for p in pairs]
     out["dr"] = [p[1] for p in pairs]
-    out["target"] = out["dr"].fillna(out["primary_diag_pred"])
     out["affection"], out["mdp"] = df["affection"].to_numpy(), df["mdp"].to_numpy()
     if (
         args.topk
