@@ -274,11 +274,16 @@ Accuracy of the suggested **DP** against the PMSI DP of the stay, i.e. what `pri
 contains: exact code, DP among the top-10 or top-20 candidates, first 4 characters (the metric of
 the PARTAGES Codabench challenge), and 3-character category.
 
-**Physician-reviewed AP-HP stays** (May 2026; text = acts + CRC + CRH + CR-OP). Views:
-**flattened** = every review is a row; **agreement + single** = one row per stay, reviewed once
-or by several reviewers who agree; **agreement** = only stays with several agreeing reviewers.
-**ICD-10** = all stays; **surgery** = stays coded in the surgical scope of the use case (~3 500
-codes).
+**Physician-reviewed AP-HP stays** (May 2026, text = acts + CRC + CRH + CR-OP).
+
+Views:
+
+- **flattened**: every review is a row.
+- **agreement + single**: one row per stay, reviewed once or by several reviewers who agree.
+- **agreement**: only stays with several agreeing reviewers.
+
+Scope: **ICD-10** = all stays, **surgery** = stays coded in the surgical scope of the use case
+(~3 500 codes).
 
 | View | Scope | Stays | Exact | Top-10 | Top-20 | 4 char. | 3 char. |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -289,12 +294,13 @@ codes).
 | agreement | ICD-10 | 47 | 61.7 % | 85.1 % | 89.4 % | 63.8 % | 63.8 % |
 | agreement | surgery | 42 | 66.7 % | 90.5 % | 95.2 % | 66.7 % | 66.7 % |
 
-When the DP is not a Z code, 43.0 % exact (228 stays, flattened); when it is a Z code (sessions,
-follow-up…), only 32.9 % exact but 65.8 % in the top-20 (76 stays): the right Z code is often among
-the first candidates. Small sets: 95 % confidence interval about ±7 points on ~200 stays, ±13
-points on ~50. The reference coding is not certain either: even reviewed PMSI coding contains
-errors, and some stays can legitimately be coded in more than one way. The **agreement** view,
-where reviewers concur, is the most reliable.
+- **By type of DP (flattened):** 43.0 % exact when the DP is not a Z code (228 stays). When it
+  is a Z code (sessions, follow-up…), only 32.9 % exact but 65.8 % in the top-20 (76 stays): the
+  right Z code is often among the first candidates.
+- **Small sets:** 95 % confidence interval about ±7 points on ~200 stays, ±13 points on ~50.
+- **The reference coding is not certain either:** even reviewed PMSI coding contains errors, and
+  some stays can legitimately be coded in more than one way. The **agreement** view, where
+  reviewers concur, is the most reliable.
 
 ## Limitations
 
