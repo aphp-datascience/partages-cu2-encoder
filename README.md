@@ -69,8 +69,8 @@ uv sync --extra cu124    # or cu121, cu118, cpu
 and download it once:
 
 ```bash
-uv run huggingface-cli login
-uv run huggingface-cli download PARTAGES-CU2/cu2-icd10-dp-encoder \
+uv run hf auth login
+uv run hf download PARTAGES-CU2/cu2-icd10-dp-encoder \
     --local-dir models/cu2-icd10-dp-encoder
 ```
 
@@ -87,7 +87,7 @@ One **CSV file, one row per hospital stay (RUM)**, with the columns of the PARTA
 |---|---|---|---|
 | `id` | always | a unique id of the stay | `RUM_000123` |
 | `speciality` | — | the specialty of the stay (not used by the model) | `CHIRURGIE VISCERALE` |
-| `text` | always | the reports of the stay (CRC, CR-OP, CRH) concatenated, separated by a blank line or by the `[...]` marker of the guidelines | `Compte rendu de consultation …` |
+| `text` | always | the reports of the stay (CRC, CRH, CR-OP) concatenated, separated by a blank line or by the `[...]` marker of the guidelines | `Compte rendu de consultation …` |
 | `procedure` | strongly recommended | the CCAM codes of the stay, separated by spaces; empty if none | `NDPA014 NDPA008` |
 | `primary_diag` | evaluation, fine-tuning | the PMSI principal diagnosis (DP) of the RUM, as coded, Z codes included | `M6534`, `Z511` |
 

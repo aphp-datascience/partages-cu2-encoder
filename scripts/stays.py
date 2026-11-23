@@ -4,7 +4,7 @@ One row per hospital stay (RUM), CSV (or parquet) with the columns
 
     id            unique id of the stay
     speciality    specialty of the stay (not used by the model)
-    text          the reports of the stay (CRC, CR-OP, CRH), concatenated;
+    text          the reports of the stay (CRC, CRH, CR-OP), concatenated;
                   `texte` is accepted too
     procedure     the CCAM codes of the stay, separated by spaces
                   (e.g. "NDPA014 NDPA008"); empty if none

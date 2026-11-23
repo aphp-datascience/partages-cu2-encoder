@@ -3,8 +3,7 @@
 #   uv run python -m scripts.train --config configs/finetune.yml --seed 42
 #
 # base_model must be a local dir: download the released model first with
-#   uv run huggingface-cli download PARTAGES-CU2/cu2-icd10-dp-encoder --revision v0.3 \
-#       --local-dir models/cu2-icd10-dp-encoder
+#   uv run hf download PARTAGES-CU2/cu2-icd10-dp-encoder --local-dir models/cu2-icd10-dp-encoder
 #
 # Edit the `vars` below, or override any of them on the command line, e.g.
 #   --vars.train_path data/my_train --vars.max_steps 2000
