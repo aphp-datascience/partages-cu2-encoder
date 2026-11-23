@@ -261,8 +261,9 @@ reference exists, it is used instead. Only fictitious or synthetic texts were se
 
 - **Input:** windows of 256 tokens over the whole stay; the CCAM line is part of the text.
 - **Augmentation:** MISTRAL is seen as 3 copies with 15 % of the words masked.
-- **Heads:** initialised from the embeddings of the code descriptions (helps rare codes);
-  cross-entropy, label smoothing 0.1 on `affection`.
+- **Heads:** both initialised from the embeddings of the code descriptions (helps rare codes):
+  ICD-10 descriptions for `affection`, descriptions and inclusion notes of the Z codes for `mdp`
+  ("no Z" keeps a bias set from its frequency); cross-entropy, label smoothing 0.1 on `affection`.
 - **Sampling:** each step mixes 32 MISTRAL stays, 4 PARHAF stays or rewrites and 128 synonyms (loss
   weight 0.1 for the synonyms).
 - **Optimisation:** AdamW, 12 000 steps, learning rate 3e-5 for the encoder and 5e-4 for the
@@ -282,15 +283,15 @@ codes).
 
 | View | Scope | Stays | Exact | Top-10 | Top-20 | 4 char. | 3 char. |
 |---|---|---:|---:|---:|---:|---:|---:|
-| flattened | ICD-10 | 310 | 39.0 % | 66.5 % | 71.0 % | 42.3 % | 48.1 % |
-| flattened | surgery | 259 | 45.2 % | 73.0 % | 76.8 % | 46.3 % | 52.1 % |
-| agreement + single | ICD-10 | 195 | 38.5 % | 68.7 % | 73.3 % | 41.5 % | 47.7 % |
-| agreement + single | surgery | 167 | 43.1 % | 73.0 % | 77.2 % | 44.3 % | 50.9 % |
-| agreement | ICD-10 | 47 | 57.5 % | 85.1 % | 87.2 % | 59.6 % | 59.6 % |
-| agreement | surgery | 42 | 61.9 % | 90.5 % | 92.9 % | 61.9 % | 61.9 % |
+| flattened | ICD-10 | 310 | 41.0 % | 65.2 % | 71.0 % | 43.9 % | 49.7 % |
+| flattened | surgery | 259 | 47.5 % | 72.2 % | 76.4 % | 49.0 % | 54.8 % |
+| agreement + single | ICD-10 | 195 | 40.5 % | 67.2 % | 73.3 % | 43.6 % | 50.3 % |
+| agreement + single | surgery | 167 | 45.5 % | 72.5 % | 77.2 % | 47.3 % | 54.5 % |
+| agreement | ICD-10 | 47 | 61.7 % | 85.1 % | 89.4 % | 63.8 % | 63.8 % |
+| agreement | surgery | 42 | 66.7 % | 90.5 % | 95.2 % | 66.7 % | 66.7 % |
 
-When the DP is not a Z code, 43.9 % exact (228 stays, flattened); when it is a Z code (sessions,
-follow-up…), only 23.7 % exact but 64.5 % in the top-20 (76 stays): the right Z code is often among
+When the DP is not a Z code, 43.0 % exact (228 stays, flattened); when it is a Z code (sessions,
+follow-up…), only 32.9 % exact but 65.8 % in the top-20 (76 stays): the right Z code is often among
 the first candidates. Small sets: 95 % confidence interval about ±7 points on ~200 stays, ±13
 points on ~50. The reference coding is not certain either: even reviewed PMSI coding contains
 errors, and some stays can legitimately be coded in more than one way. The **agreement** view,
